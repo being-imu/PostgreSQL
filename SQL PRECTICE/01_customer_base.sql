@@ -453,20 +453,272 @@ FROM (
 ) AS monthly_revenue
 ORDER BY month ASC;
 -- ============================================================
--- ============================================================
--- ============================================================
--- ============================================================
--- ============================================================
--- ============================================================
--- ============================================================
+/*
+Business Question:
+Find customers whose total spending is greater than the average
+spending of all customers.
+*/
+
+WITH customer_spending AS (
+    SELECT customer_id,
+           SUM(quantity * price) AS total_spending
+    FROM online_retail
+    WHERE customer_id IS NOT NULL
+    GROUP BY customer_id
+)
+
+SELECT customer_id,
+       total_spending
+FROM customer_spending
+WHERE total_spending > (
+    SELECT AVG(total_spending)
+    FROM customer_spending
+);
 
 -- ============================================================
--- ============================================================
--- ============================================================
--- ============================================================
--- ============================================================
+
+/*
+Business Question:
+Find the top 10 customers by total spending.
+*/
+
+WITH customer_spending AS (
+    SELECT customer_id,
+           SUM(quantity * price) AS total_spending
+    FROM online_retail
+    WHERE customer_id IS NOT NULL
+    GROUP BY customer_id
+)
+
+SELECT customer_id,
+       total_spending
+FROM customer_spending
+ORDER BY total_spending DESC
+LIMIT 10;
+
 -- ============================================================
 
+/*
+Business Question:
+Find the top 5 countries by total revenue.
+*/
+
+WITH country_revenue AS (
+    SELECT country,
+           SUM(quantity * price) AS total_revenue
+    FROM online_retail
+    WHERE customer_id IS NOT NULL
+    GROUP BY country
+)
+
+SELECT country,
+       total_revenue
+FROM country_revenue
+ORDER BY total_revenue DESC
+LIMIT 5;
+
+-- ============================================================
+/*
+Business Question:
+Find the top 5 customers by total spending,
+but only include customers who have made at least 5 purchases.
+*/
+
+WITH customer_spending AS (
+    SELECT customer_id,
+           SUM(quantity * price) AS total_revenue,
+           COUNT(stock_code) AS number_of_purchases
+    FROM online_retail
+    WHERE customer_id IS NOT NULL
+    GROUP BY customer_id
+)
+
+SELECT customer_id,
+       total_revenue
+FROM customer_spending
+WHERE number_of_purchases >= 5
+ORDER BY total_revenue DESC
+LIMIT 5;
+-- ===========================================================
+
+/*
+Business Question:
+Find customers whose total spending is higher than the 
+average spending of customers from the United Kingdom.
+*/
+
+WITH customer_spending AS (
+    SELECT customer_id, SUM(quantity*price) AS total_spending
+    FROM online_retail
+    WHERE customer_id IS NOT NULL
+    GROUP BY customer_id
+)
+SELECT customer_id, total_spending
+FROM customer_spending
+WHERE total_spending > (
+    SELECT AVG(total_spending) FROM(
+    SELECT customer_id, SUM(quantity*price) AS total_spending
+    FROM online_retail
+    WHERE customer_id IS NOT NULL AND country = 'United Kingdom'
+    GROUP BY customer_id
+    ) AS uk_customer
+);
+
+-- ============================================================
+
+SELECT
+    customer_id, invoice, invoice_date,
+    ROW_NUMBER() OVER(
+        PARTITION BY customer_id
+        ORDER BY invoice_date
+    ) AS purchase_number
+FROM online_retail
+WHERE customer_id IS NOT NULL;
+
+-- ============================================================
+
+SELECT
+    customer_id,
+    SUM(quantity * price) AS total_spending,
+    RANK() OVER (
+        ORDER BY SUM(quantity * price) DESC
+    ) AS rank,
+    DENSE_RANK() OVER (
+        ORDER BY SUM(quantity * price) DESC
+    ) AS dense_rank
+FROM online_retail
+WHERE customer_id IS NOT NULL
+GROUP BY customer_id;
+
+
+-- ============================================================
+
+/*
+Business Question:
+For each customer's purchase, show the previous purchase date.
+*/
+
+SELECT
+    customer_id,
+    invoice_date,
+    LAG(invoice_date) OVER (
+        PARTITION BY customer_id
+        ORDER BY invoice_date ASC
+    ) AS previous_purchase_date
+FROM online_retail
+WHERE customer_id IS NOT NULL;
+
+
+/*
+Business Question:
+For each customer's purchase, show the previous purchase date.
+*/
+
+SELECT
+    customer_id,
+    invoice_date,
+    LAG(invoice_date) OVER (
+        PARTITION BY customer_id
+        ORDER BY invoice_date ASC
+    ) AS previous_purchase_date
+FROM online_retail
+WHERE customer_id IS NOT NULL;
+
+-- ============================================================
+
+/*
+Business Question:
+For each customer, calculate the number of days between
+their current purchase and their previous purchase.
+*/
+
+WITH customer_purchases AS (
+    SELECT
+        customer_id,
+        invoice_date,
+        LAG(invoice_date) OVER (
+            PARTITION BY customer_id
+            ORDER BY invoice_date
+        ) AS previous_purchase_date
+    FROM online_retail
+    WHERE customer_id IS NOT NULL
+)
+
+SELECT
+    customer_id,
+    invoice_date,
+    previous_purchase_date,
+    invoice_date - previous_purchase_date AS days_since_previous
+FROM customer_purchases;
+
+
+-- ============================================================
+/*
+Business Question:
+For each customer, show their current purchase date
+and the date of their next purchase.
+*/
+
+SELECT
+    customer_id,
+    invoice_date,
+    LEAD(invoice_date) OVER (
+        PARTITION BY customer_id
+        ORDER BY invoice_date
+    ) AS next_purchase_date
+FROM online_retail
+WHERE customer_id IS NOT NULL;
+
+-- ============================================================
+
+/*
+Business Question:
+For each customer, calculate the number of days until
+their next purchase.
+*/
+
+WITH customer_purchases AS (
+    SELECT
+        customer_id,
+        invoice_date,
+        LEAD(invoice_date) OVER (
+            PARTITION BY customer_id
+            ORDER BY invoice_date
+        ) AS next_purchase_date
+    FROM online_retail
+    WHERE customer_id IS NOT NULL
+)
+
+SELECT
+    customer_id,
+    invoice_date,
+    next_purchase_date,
+    next_purchase_date - invoice_date AS days_until_next_purchase
+FROM customer_purchases;
+
+-- ============================================================
+/*
+Business Question:
+Find the number of users in each tweet-count bucket for 2022.
+*/
+
+
+WITH tweet_data AS (
+    SELECT user_id, COUNT(tweet_id) AS tweet_bucket
+    FROM tweets
+    WHERE tweet_date >= '2022-01-01'
+    AND tweet_date < '2023-01-01'
+    GROUP BY user_id
+)
+
+SELECT tweet_bucket, COUNT(user_id)
+FROM tweet_data
+GROUP BY tweet_bucket;
+
+
+
+
+-- ============================================================
 -- ============================================================
 -- ============================================================
 -- ============================================================
